@@ -2,9 +2,9 @@
  * Module dependencies.
  */
 
-var AssertionError = require('assert').AssertionError
-  , callsite = require('callsite')
-  , fs = require('fs')
+var AssertionError = require('assert').AssertionError,
+    callsite = require('callsite'),
+    fs = require('fs');
 
 /**
  * Expose `assert`.

@@ -1,8 +1,8 @@
 {
-  "name": "RubberBand",
-  "readableName": "Rubber Band",
-  "version": "0.8.0",
-  "description": "A Construct 2 Movement Behavior to emulate a rubber band",
+  "name": "CollisionAware",
+  "readableName": "Collision Aware",
+  "version": "0.1.0",
+  "description": "A stand-alone collision detection movement behavior. Meant to be used in cooperation with other movement behaviors.",
   "main": "none",
   "dependencies": {
     "jshint": "^2.5.11"
@@ -21,7 +21,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/simulated-tea/Construct2-RubberBand.git"
+    "url": "https://github.com/simulated-tea/Construct2-CollisionAware.git"
   },
   "keywords": [
     "Construct2",
@@ -31,7 +31,7 @@
   "author": "simulated_tea",
   "license": "Apache License 2.0",
   "bugs": {
-    "url": "https://github.com/simulated-tea/Construct2-RubberBand/issues"
+    "url": "https://github.com/simulated-tea/Construct2-CollisionAware/issues"
   },
-  "homepage": "https://github.com/simulated-tea/Construct2-RubberBand"
+  "homepage": "https://github.com/simulated-tea/Construct2-CollisionAware"
 }

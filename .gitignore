@@ -4,6 +4,6 @@ pin/
 jshint
 node_modules/
 build/
-RubberBand.c2addon
-RubberBand.zip
+CollisionAware.c2addon
+CollisionAware.zip
 npm-debug.log

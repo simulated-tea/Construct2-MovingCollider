@@ -1,21 +1,9 @@
-# Rubber Band
-A rubber band behavior for Construct 2
-This behavior can attach one object to another and exercise a force if these two objects get too far apart.
-It can have additional gravity and drag configured to allow for some quite different use cases.
+# Collision Aware
 
 ## State
-The current implementation is functional.
-
-No hard performance optimizations have been done so far.
+Draft.
 
 ### Known issues
-* collision checks not yet implemented
-* cannot explicitely change the speed by actions
-* many actions are still missing: cannot change config at runtime
-* if complex chains are shaken intensely they might spin around like crazy and not come back to rest or fly off to inifinity.
-  Try increasing the drag to avoid this (e.g drag >= stiffness).
-* crazy config values might create crazy behavior - won't fix. I like some of those. :)
-
 
 ## Disclaimer
 This is still work in progress. Comments, feature requests and suggestions, especially regarding integration into Construct 2 or per-frame computation and game mechanics in general, are welcome.

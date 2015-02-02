@@ -6,16 +6,16 @@ module.exports = function(grunt) {
         },
         copy: {
             deploy: {
-                src: 'rubberband/*',
+                src: 'collisionaware/*',
                 dest: '/Program Files (x86)/Steam/SteamApps/common/Construct2/Construct2-Win64/exporters/html5/behaviors/'
             },
             build: {
-                src: 'rubberband/*',
+                src: 'collisionaware/*',
                 dest: 'build/files/'
             },
             'zip-c2addon': {
-                src: 'RubberBand.zip',
-                dest: 'RubberBand.c2addon'
+                src: 'CollisionAware.zip',
+                dest: 'CollisionAware.c2addon'
             },
             backup: {
                 src: ['*', '.git/*'],
@@ -26,7 +26,7 @@ module.exports = function(grunt) {
             'using-cwd': {
                 cwd: 'build/',
                 src: ['build/info.xml', 'build/files/**/*'],
-                dest: 'RubberBand.zip'
+                dest: 'CollisionAware.zip'
             }
         },
         mochaTest: {

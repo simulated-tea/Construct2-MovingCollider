@@ -6,10 +6,10 @@ describe('CollisionAware - runtime', function(){
     global.cr = require('./helper/crMock');
     global.window = require('./helper/browserMock');
     global.assert2 = function() {};
-    require("./../rubberband/runtime")
+    require("./../collisionaware/runtime")
     global.simulatedTea = {};
     global.simulatedTea.CollisionAware = {};
-    global.simulatedTea.CollisionAware.StuckTracker = require("./../rubberband/StuckTracker")
+    global.simulatedTea.CollisionAware.StuckTracker = require("./../collisionaware/StuckTracker")
 
     var behavior = new cr.behaviors.CollisionAware({
             iam: 'runtime',
