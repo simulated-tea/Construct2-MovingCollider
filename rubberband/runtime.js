@@ -4,14 +4,14 @@
 assert2(cr, "cr namespace not created");
 assert2(cr.behaviors, "cr.behaviors not created");
 
-cr.behaviors.RubberBand = function(runtime)
+cr.behaviors.CollisionAware = function(runtime)
 {
     this.runtime = runtime;
 };
 
 (function ()
 {
-    var behaviorProto = cr.behaviors.RubberBand.prototype;
+    var behaviorProto = cr.behaviors.CollisionAware.prototype;
 
     behaviorProto.Type = function(behavior, objtype)
     {
@@ -32,7 +32,7 @@ cr.behaviors.RubberBand = function(runtime)
         this.behavior = type.behavior;
         this.inst = inst;
         this.runtime = type.runtime;
-        this.stuckTracker = new simulatedTea.RubberBand.StuckTracker();
+        this.stuckTracker = new simulatedTea.CollisionAware.StuckTracker(); // XXX this will break at minification
     };
 
     var toleratedNumericError = 1;
@@ -41,21 +41,13 @@ cr.behaviors.RubberBand = function(runtime)
 
     behinstProto.onCreate = function()
     {
-        this.relaxedLength = Math.max(this.properties[0], 0);
-        this.stiffness = this.properties[1]*0.1; // for nicer default config values
-        this.gravity = this.properties[2]*100;
-        this.drag = this.properties[3]*0.01;
-        this.collisionsEnabled = this.properties[4]; // 0=disabled, 1=enabled
-        this.enabled = this.properties[5];
+        this.enabled = this.properties[0];
 
         this.elasticity = 0.1;
         this.stuckTime = 0;
 
-        this.fixture = null;
-        this.fixtureUid = -1;
         this.dx = 0;
         this.dy = 0;
-        this.isStretched = false;
         this.lastX = this.inst.x;
         this.lastY = this.inst.y;
         this.medianDt = 0.016; // 60 FPS
@@ -64,19 +56,12 @@ cr.behaviors.RubberBand = function(runtime)
 
     behinstProto.onDestroy = function ()
     {
-        this.fixture = null;
     };
 
     behinstProto.saveToJSON = function ()
     {
         return {
-            "fixtureUid": this.fixture ? this.fixture.uid : -1,
-            "relaxedLength": this.relaxedLength,
-            "stiffness": this.stiffness,
-            "gravity": this.gravity,
-            "collisionsEnabled": this.collisionsEnabled,
             "enabled": this.enabled,
-            "drag": this.drag,
             "dx": this.dx,
             "dy": this.dy,
             "lastX": this.lastX,
@@ -88,13 +73,7 @@ cr.behaviors.RubberBand = function(runtime)
 
     behinstProto.loadFromJSON = function (o)
     {
-        this.fixtureUid = o["fixtureUid"];
-        this.relaxedLength = o["relaxedLength"];
-        this.stiffness = o["stiffness"];
-        this.gravity = o["gravity"];
-        this.collisionsEnabled = o["collisionsEnabled"];
         this.enabled = o["enabled"];
-        this.drag = o["drag"];
         this.dx = o["dx"];
         this.dy = o["dy"];
         this.lastX = o["lastX"];
@@ -103,22 +82,6 @@ cr.behaviors.RubberBand = function(runtime)
         this.lastDts = o["lastDts"];
 
         this.elasticity = 0.1;
-        this.isStretched = (this.calculateStretch().displacement > 0);
-    };
-
-    behinstProto.afterLoad = function ()
-    {
-        if (this.fixtureUid === -1)
-        {
-            this.fixture = null;
-        }
-        else
-        {
-            this.fixture = this.runtime.getObjectByUID(this.fixtureUid);
-            assert2(this.fixture, "Failed to find fixture object by UID");
-        }
-
-        this.fixtureUid = -1;
     };
 
     behinstProto.tick = function ()
@@ -127,13 +90,11 @@ cr.behaviors.RubberBand = function(runtime)
         this.pickupExternalImpulse();
         var diff = { x: 0, y: 0 };
 
-        if (this.enabled && !this.stuckTracker.isStuck())
-        {
-            diff = this.calculateBandMovement();
-        }
-
         if (this.stuckTracker.isStuck()) {window.console.log('stuck '+this.stuckTracker.unmovedTime)};
-        window.console.log('moving by band: x: '+diff.x+', y: '+diff.y)
+        var diff = {
+            x: this.inst.x - this.lastX,
+            y: this.inst.y - this.lastY
+        };
         if (!movementNegligible(diff))  // save draw calls (and collisions) if nothing moves
         {
             if (this.collisionsEnabled)
@@ -143,27 +104,9 @@ cr.behaviors.RubberBand = function(runtime)
                 {
                     this.oneStepOrCollision(diff);
                 }
-                else
-                {
-                    // i should raycast, only how?
-                    // just fly through for now
-                    this.inst.x += diff.x;
-                    this.inst.y += diff.y;
-                    this.inst.set_bbox_changed();
-                }
-            }
-            else
-            {
-                this.inst.x += diff.x;
-                this.inst.y += diff.y;
-                this.inst.set_bbox_changed();
             }
         }
 
-        var effectiveMove = {
-            x: this.inst.x - this.lastX,
-            y: this.inst.y - this.lastY
-        };
         window.console.log('measured movement - x: '+effectiveMove.x+', y: '+effectiveMove.y);
         if (movementNegligible(effectiveMove))
         {
@@ -196,41 +139,6 @@ cr.behaviors.RubberBand = function(runtime)
             this.dy = (this.dy + delta.y/this.medianDt)/2;
         }
     }
-
-    behinstProto.calculateBandMovement = function ()
-    {
-        var accelX = 0,
-            accelY = 0,
-            dt = this.runtime.getDt(this.inst),
-            delta = this.getDeltaVector(),
-            stretch = this.calculateStretch();
-        if (this.fixture)
-        {
-            this.isStretched = (stretch.displacement > 0);
-            if (this.isStretched)
-            {
-                var accel = stretch.displacement*this.stiffness;
-                accelX = accel*delta.x*stretch.ratio;
-                accelY = accel*delta.y*stretch.ratio;
-                this.dx += this.medianDt*accelX;
-                this.dy += this.medianDt*accelY;
-            }
-        }
-        if (this.gravity)
-        {
-            this.dy += this.medianDt*this.gravity;
-        }
-        if (this.drag)
-        {
-            this.dx -= (this.drag*this.dx);
-            this.dy -= (this.drag*this.dy);
-        }
-
-        return {
-            x: cr.clamp((this.dx + 0.5*(accelX)*this.medianDt)*this.medianDt, -1000, 1000),
-            y: cr.clamp((this.dy + 0.5*(accelY + this.gravity)*this.medianDt)*this.medianDt, -1000, 1000),
-        };
-    };
 
     function movementNegligible (vector)
     {
@@ -374,50 +282,14 @@ cr.behaviors.RubberBand = function(runtime)
         }
     }
 
-    behinstProto.calculateStretch = function ()
-    {
-        if (!this.fixture)
-        {
-            return 0;
-        }
-        var distance = cr.distanceTo(this.fixture.x, this.fixture.y, this.inst.x, this.inst.y),
-            displacement = Math.max(distance - this.relaxedLength, 0),
-            result = {};
-        result.ratio = displacement/distance;
-        result.displacement = displacement;
-        return result;
-    }
-
-    behinstProto.getDeltaVector = function ()
-    {
-        if (!this.fixture)
-        {
-            return {
-                x: 0,
-                y: 0
-            }
-        }
-        return {
-            x: this.fixture.x - this.inst.x,
-            y: this.fixture.y - this.inst.y
-        }
-    }
-
     /**BEGIN-PREVIEWONLY**/
     behinstProto.getDebuggerValues = function (propsections)
     {
         propsections.push({
             "title": this.type.name,
             "properties": [
-                {"name": "fixtureName/UID", "value": this.fixture ? this.fixture.type.name+"/"+this.fixture.uid : "-/-", "readonly": true},
-                {"name": "Stretchedness", "value": this.isStretched, "readonly": true},
                 {"name": "Velocity.x", "value": this.dx, "readonly": true},
                 {"name": "Velocity.y", "value": this.dy, "readonly": true},
-                {"name": "Relaxed Length", "value": this.relaxedLength},
-                {"name": "Spring Rate", "value": this.stiffness},
-                {"name": "Gravity", "value": this.gravity},
-                {"name": "Drag", "value": this.drag},
-                {"name": "Colliding", "value": !! this.collisionsEnabled},
                 {"name": "Enabled", "value": !! this.enabled},
             ]
         });
@@ -425,16 +297,6 @@ cr.behaviors.RubberBand = function(runtime)
 
     behinstProto.onDebugValueEdited = function (header, name, value)
     {
-        if (name === "Relaxed Length")
-            this.relaxedLength = value;
-        if (name === "Spring Rate")
-            this.stiffness = value;
-        if (name === "Gravity")
-            this.gravity = value;
-        if (name === "Drag")
-            this.drag = value;
-        if (name === "Colliding")
-            this.collisionsEnabled = value;
         if (name === "Enabled")
             this.enabled = value;
     };
@@ -442,33 +304,11 @@ cr.behaviors.RubberBand = function(runtime)
 
     function Cnds() {};
 
-    Cnds.prototype.IsStretched = function () { return this.isStretched }
-    Cnds.prototype.IsTied = function () { return !! this.fixture }
     Cnds.prototype.IsEnabled = function () { return this.enabled }
 
     behaviorProto.cnds = new Cnds();
 
     function Acts() {};
-
-    Acts.prototype.tie = function (obj)
-    {
-        if (!obj)
-        {
-            return;
-        }
-        var otherinst = obj.getFirstPicked(this.inst);
-        if (!otherinst)
-        {
-            return;
-        }
-        this.fixture = otherinst;
-    };
-
-    Acts.prototype.cut = function ()
-    {
-        this.fixture = null;
-        this.isStretched = false;
-    };
 
     Acts.prototype.setEnabled = function (en)
     {
@@ -480,45 +320,9 @@ cr.behaviors.RubberBand = function(runtime)
         }
     };
 
-    Acts.prototype.modifyLength = function (delta)
-    {
-        this.relaxedLength = Math.max(this.relaxedLength + delta, 0);
-    };
-
-    Acts.prototype.setLength = function (length)
-    {
-        this.relaxedLength = Math.max(length, 0);
-    };
-
-    Acts.prototype.setColliding = function (en)
-    {
-        this.collisionsEnabled = (en === 1);
-    };
-
-    Acts.prototype.goCrazy = function ()
-    {
-        window.console.log('I want to raycast');
-        //this.relaxedLength = Math.max(length, 0);
-    };
-
     behaviorProto.acts = new Acts();
 
     function Exps() {};
-
-	Exps.prototype.VectorX = function (ret)
-	{
-		ret.set_float(this.dx);
-	};
-
-	Exps.prototype.VectorY = function (ret)
-	{
-		ret.set_float(this.dy);
-	};
-
-	Exps.prototype.MovingAngle = function (ret)
-	{
-		ret.set_float(cr.to_degrees(Math.atan2(this.dy, this.dx)));
-	};
 
     behaviorProto.exps = new Exps();
 

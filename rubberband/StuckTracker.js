@@ -4,9 +4,9 @@ if (typeof simulatedTea === 'undefined')
 {
     var simulatedTea = {}
 }
-if (typeof simulatedTea.RubberBand === 'undefined')
+if (typeof simulatedTea.CollisionAware === 'undefined')
 {
-    simulatedTea.RubberBand = {}
+    simulatedTea.CollisionAware = {}
 }
 
 (function ()
@@ -37,7 +37,7 @@ if (typeof simulatedTea.RubberBand === 'undefined')
         return this.unmovedTime > 0.33;
     }
 
-    simulatedTea.RubberBand.StuckTracker = StuckTracker;
+    simulatedTea.CollisionAware.StuckTracker = StuckTracker;
     if ( typeof module === "object" && typeof module.exports === "object" )
     {
         module.exports = StuckTracker;
