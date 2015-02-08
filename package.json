@@ -1,6 +1,6 @@
 {
-  "name": "CollisionAware",
-  "readableName": "Collision Aware",
+  "name": "Moving Collider",
+  "readableName": "Moving Collider",
   "version": "0.1.0",
   "description": "A stand-alone collision detection movement behavior. Meant to be used in cooperation with other movement behaviors.",
   "main": "none",
