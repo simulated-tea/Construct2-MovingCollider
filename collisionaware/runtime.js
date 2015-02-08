@@ -96,31 +96,28 @@ cr.behaviors.CollisionAware = function(runtime)
     {
         this.getLast5MedianDt();
         this.measureExternalImpuls();
-
-        if (this.ticksToPush > 0)
-        {
-            this.inst.x += this.dx*this.medianDt;
-            this.inst.y += this.dy*this.medianDt;
-            this.ticksToPush -= 1;
-        }
-        else
-        {
-            this.dx = 0;
-            this.dy = 0;
-        }
+        //this.applyReflectionSpeed();
 
         var diff = {
             x: this.inst.x - this.lastX,
             y: this.inst.y - this.lastY
         };
 
-        if (!movementNegligible(diff) && this.enabled) // resolve collision & pickup counterspeed
+        if (!movementNegligible(diff) && this.enabled) // resolve collision & compute counterspeed
         {
+            this.inst.update_bbox();
             if (this.isMovingSlow(diff))
             {
-                this.oneStepOrCollision(diff);
+                this.lastCheckedStep(diff);
             }
-            // else should raycast. phew. --- or multisample !!
+            else
+            {
+                this.multiSamplePath(diff);
+                // L> cannot recognize curvature
+                //    gets very expensive for fast, small objects
+                //    (would need a raycast-like check for that)
+            }
+            this.inst.set_bbox_changed(); // probably not needed
         }
 
         //if (movementNegligible(diff))
@@ -134,6 +131,82 @@ cr.behaviors.CollisionAware = function(runtime)
 
         this.lastX = this.inst.x;
         this.lastY = this.inst.y;
+    }
+
+    behinstProto.applyReflectionSpeed = function ()
+    {
+        if (this.ticksToPush > 0)
+        {
+            this.inst.x += this.dx*this.medianDt;
+            this.inst.y += this.dy*this.medianDt;
+            this.ticksToPush -= 1;
+        }
+        else
+        {
+            this.dx = 0;
+            this.dy = 0;
+        }
+    }
+
+    behinstProto.isMovingSlow = function (diff)
+    {
+        return (Math.abs(diff.x) < this.inst.bbox.width()
+            && Math.abs(diff.y) < this.inst.bbox.height())
+    }
+
+    behinstProto.lastCheckedStep = function (diff)
+    {
+        var collobj = this.runtime.testOverlapSolid(this.inst);
+        if (collobj)
+        {
+            window.console.log('collision');
+            this.resolveCollision(diff, collobj, Math.sqrt(diff.x*diff.x + diff.y*diff.y))
+        }
+    }
+
+    behinstProto.multiSamplePath = function (diff)
+    {
+        var unit = 5,
+            stepWidth = Math.max(Math.min(this.inst.bbox.width(), this.inst.bbox.height()) - unit, unit),
+            // L> stupid workaround for missing raycast solution for small fast objects
+            targetDistance = Math.sqrt(diff.x*diff.x + diff.y*diff.y);
+        for (
+            var stepDistance = unit;
+            stepDistance + unit < targetDistance;
+            stepDistance += stepWidth
+        )
+        {
+            this.inst.x = this.lastX + stepDistance/targetDistance*diff.x;
+            this.inst.y = this.lastY + stepDistance/targetDistance*diff.y;
+            var collobj = this.runtime.testOverlapSolid(this.inst);
+            if (collobj)
+            {
+                this.resolveCollision(diff, collobj, stepWidth);
+                return;
+            }
+        }
+        dot.x = this.inst.x;
+        dot.y = this.inst.y;
+        dot.set_bbox_changed();
+        this.lastCheckedStep(diff);
+    }
+
+    behinstProto.resolveCollision = function (diff, collobj, maxDistance)
+    {
+        this.runtime.pushOutSolid(this.inst, -diff.x, -diff.y, maxDistance + toleratedNumericError);
+        this.runtime.registerCollision(this.inst, collobj);
+        var pushoutX = this.inst.x - (this.lastX + diff.x);
+        var pushoutY = this.inst.y - (this.lastY + diff.y);
+        // pushout direction is mostly off anglewise in positive direction
+        // could try a workaround by manually continuing the pushout spiral (as circle, more likely)
+        // this.testAndDecideReflectionSpeed(diff, pushoutX, pushoutY); // work postponed
+    }
+
+    behinstProto.testAndDecideReflectionSpeed = function (diff, pbx, pby)
+    {
+        this.dx += this.elasticity*(pbx)/this.medianDt;
+        this.dy += this.elasticity*(pby)/this.medianDt;
+        this.ticksToPush += 1;
     }
 
     behinstProto.getLast5MedianDt = function ()
@@ -170,26 +243,6 @@ cr.behaviors.CollisionAware = function(runtime)
         return {
             x: this.inst.x - this.lastX,
             y: this.inst.y - this.lastY
-        }
-    }
-
-    behinstProto.isMovingSlow = function (diff)
-    {
-        return (Math.abs(diff.x) < this.inst.bbox.width()
-            && Math.abs(diff.y) < this.inst.bbox.height())
-    }
-
-    behinstProto.oneStepOrCollision = function (diff)
-    {
-        this.inst.set_bbox_changed();
-        var collobj = this.runtime.testOverlapSolid(this.inst);
-        if (collobj)
-        {
-            this.runtime.pushOutSolidNearest(this.inst, Math.sqrt(diff.x*diff.x + diff.y*diff.y) + toleratedNumericError);
-            this.runtime.registerCollision(this.inst, collobj);
-            this.dx += this.elasticity*(this.inst.x - (this.lastX + diff.x))/this.medianDt;
-            this.dy += this.elasticity*(this.inst.y - (this.lastY + diff.y))/this.medianDt;
-            this.ticksToPush += 1;
         }
     }
 
